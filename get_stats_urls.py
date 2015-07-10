@@ -26,6 +26,9 @@ data_dirs     = {'1':'hgnd',
                              '3':'fsjd',
                              '4':'fsyd'}
 
+global  indicator_list
+indicator_list = []
+indi_info_list = []
 
 def load_dict(tdfile,key_col,value_col_list):
     """
@@ -60,7 +63,15 @@ def load_dict(tdfile,key_col,value_col_list):
     fin.close()
     return result
 
-
+def del_tabs(s):
+    '''
+    
+    '''
+    result_str = s.strip()
+    result_str = string.replace(result_str, "\t", " ")
+    result_str = string.replace(result_str, "\n", " ")
+    return result_str
+    
 def mkdir_p(path):
     try:
         os.makedirs(path)
@@ -69,101 +80,6 @@ def mkdir_p(path):
             pass
         else: raise
 
-def get_stats_urls(filename):
-    """
-    从统计局数据查询页面生成的har文件中获取url
-    """
-    try:
-        har = open(filename)
-    except Exception,e:
-        print e
-    else:
-        print filename," 文件打开成功"
-    
-    har_content = har.readlines()
-    print len(har_content)
-    url_pattern = re.compile('((http|ftp|https)://)(([a-zA-Z0-9\._-]+\.[a-zA-Z]{2,6})|([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}))(:[0-9]{1,4})*(/[a-zA-Z0-9\&%_\./-~-]*)?')
-    urls = set()
-    for line in har_content:
-        m = re.search(url_pattern,line)
-        if m:
-            urls.add(m.group(0))
-    print "供获得:",len(urls),"条url"
-    print "条件过滤中....."
-    workspace_urls = set()
-    for url in urls:
-        
-        #if url.find(r'workspace/index?') != -1 and url.find(r'tmp=') != -1:
-        if url.find(r'm=QueryData&dbcode=hgyd') != -1:
-            workspace_urls.add(url)
-    print "符合条件的url共",len(workspace_urls),"条"
-    urls_file = open("urls.txt","w")
-    for url in workspace_urls:
-        urls_file.write(url+"\n")
-
-    urls_file.close()
-    har.close()
-    return workspace_urls
-
-def get_fsnd_data(urls,area_codes_list):
-    """
-    urls_list:url list
-    area_codes_list: 所有地区的编号，用于构造新url
-    """
-    #需要替换的时间
-    time_pattern = re.compile('&time=-1%2C\d{4}&')
-    #需要替换的检索地区
-    select_pattern = re.compile('&selectId=\d{6}&')
-    #日志文件
-    log_file = open("url_error.txt","w")
-    for area_code in area_codes_list:
-        print "当前处理地区:",area_code
-        #为地区数据文件创建文件夹
-        area_dir = "./data/"+area_code
-        if os.path.exists(area_dir):
-            pass
-        else:
-            try:
-                os.makedirs(area_dir)
-            except  Exception,e:
-                print area_dir,"文件夹创建失败",e
-                sys.exit()
-        #获取数据
-        file_no = 0
-        for url in urls:
-            file_no += 1
-            if file_no%50==0:
-                print "真个在处理:",file_no,"条数据"
-            target_url = url
-            target_area = "&selectId="+str(area_code)+"&"
-            target_url = re.sub(time_pattern,"&time=-1%2C1949&",target_url)
-            target_url = re.sub(select_pattern,target_area,target_url)
-            #等在0-3秒，防止被屏蔽
-            #获取数据
-            wait_time = 3*random.random()
-            time.sleep(wait_time)
-            try:
-                page = urllib.urlopen(target_url)
-                data = page.read()
-            except Exception,e:
-                log_file.write(url+"\n"+e+"\n")
-            else:
-                pass
-            #下载数据
-            try:
-                file_name = str(file_no)+".dat"
-                save_path  = os.path.join(area_dir,file_name)
-                fin = open(save_path,"w")
-                fin.write(data)
-                fin.close()
-            except Exception,e:
-                print file_no,":",e
-            else:
-                #print file_no," 文件保存成功"
-                pass        
-        log_file.close()           
-    
-    
 def data_extract(data_dir):
     print "正在抽取",data_dir,"下的数据"
     filelist = []
@@ -220,8 +136,6 @@ def data_extract(data_dir):
                     #    rego_ename = region_item["ename"]
                     #    region_meta.write(rego_id+"\t"+rego_name+"\t"+rego_ename+"\n")
             fin.close() 
-
-
     indicator_num_file.close()
     indicator_meta.close()
     #返回数值文件名和指标元信息文件名
@@ -294,95 +208,6 @@ def load_urls(dir_name):
     else:
         urls = fin.readlines()
         return urls
-
-
-    
-    
-def get_data(data_cls,data_dir,area_codes_list):
-    """
-    根据选择来获取数据
-    data_cls:数据分类
-    data_dir:数据目录
-    """    
-    urls = load_urls(data_dir)
-    cf = ConfigParser.ConfigParser()
-    cf.read("stats_data.conf")
-    
-    #需要替换的时间
-    #time_pattern = re.compile('&time=-1%2C\d{4}&')
-    time_pattern = ""
-    try:
-        time_pattern = cf.get("timepattern", data_cls)
-    except Exception,e:
-        print "配置文件timepattern获取错误",e
-        sys.exit()
-        
-    btime = ""
-    try:
-        btime = cf.get("begintime",data_cls)
-    except Exception,e:
-        print "配置文件begintime参数获取错误",e
-        sys.exit()
-    #url中获取数据的时间
-    btime = "&time=-1%2C" + btime + "&"
-        
-    time_patt = re.compile(time_pattern)
-    #需要替换的检索地区
-    select_pattern = re.compile('&selectId=\d{6}&')
-    #日志文件
-    log_file = open("url_error.txt","w")
-
-    #为地区数据文件创建文件夹
-    data_dir = os.path.join(data_dir,"data")
-    for area_code in area_codes_list:
-        print "当前处理地区:",area_code
-        
-        #area_dir = "./data/"+area_code
-        area_dir = os.path.join(data_dir,area_code)
-        if os.path.exists(area_dir):
-            pass
-        else:
-            try:
-                os.makedirs(area_dir)
-            except  Exception,e:
-                print area_dir,"文件夹创建失败",e
-                sys.exit()
-        #获取数据
-        file_no = 0
-        for url in urls:
-            file_no += 1
-            if file_no%50==0:
-                print "正在获取第:",file_no,"条数据"
-            target_url = url
-            target_area = "&selectId="+str(area_code)+"&"
-            #target_url = re.sub(time_pattern,"&time=-1%2C1949&",target_url)
-            target_url = re.sub(time_patt,btime,target_url)
-            target_url = re.sub(select_pattern,target_area,target_url)
-            #等在0-3秒，防止被屏蔽
-            #获取数据
-            wait_time = 3*random.random()
-            time.sleep(wait_time)
-            try:
-                page = urllib.urlopen(target_url)
-                data = page.read()
-            except Exception,e:
-                log_file.write(url+"\n"+e+"\n")
-            else:
-                pass
-            #下载数据
-            try:
-                file_name = str(file_no)+".dat"
-                save_path  = os.path.join(area_dir,file_name)
-                fin = open(save_path,"w")
-                fin.write(data)
-                fin.close()
-            except Exception,e:
-                print file_no,":",e
-            else:
-                #print file_no," 文件保存成功"
-                pass        
-        log_file.close()           
-    return data_dir 
     
 def letter_quarter(filename,foutname,patterns):
     """
@@ -415,88 +240,10 @@ def letter_quarter(filename,foutname,patterns):
                         items[5] = re.sub(re.compile(k),v, items[5])
                         for i  in range(len(items)-1):
                             fout.write(items[i]+"\t")
-                        fout.write(items[-1])
-            
+                        fout.write(items[-1])            
     fout.close()
 
-
-
-def stats_data():
-    
-    print "[1]获取中国宏观年度数据"
-    print "[2]获取各省份年度数据"
-    print "[3]获取各省份季度数据"
-    print "[4]获取各身份月度数据"
-    
-    data_dir_path = ""
-    while True:
-        sn = raw_input("输入对应的数字序号进行选择")
-        if sn != '1' and sn != '2' and sn !='3' and sn != '4':
-            continue
-        print "确定",note_menu[sn],"请输入y,否则请输入其他字符.输入0退出程序"
-        select = raw_input(":")
-        if select == "y":
-            current_dir = os.getcwd()
-            data_dir_path = os.path.join(current_dir,data_dirs[sn])
-            if os.path.exists(data_dir_path):
-                pass
-            else:
-                try:
-                    os.makedirs(data_dir_path)
-                except  Exception,e:
-                    print data_dir_path,"文件夹创建失败",e
-                    sys.exit()
-            print "相关数据将会保存在:",data_dir_path
-            break
-        elif select == '0':
-            sys.exit()
-        else:
-            pass
-        
-    print "载入地区列表中"
-    area_code_dict  = load_dict("area_code", 0, [1])
-    area_codes = area_code_dict.keys()
-    if data_dirs[sn] == "hgnd":
-        area_codes = ["000000"]
-    else:                                                            #测试
-        area_codes =  ['150000', '110000'] #测试
-    print "地区列表为：",area_codes
-    #获取数据
-    #data_dir = get_data(data_dirs[sn],data_dir_path , area_codes)
-    #data_dir = '/home/jay/workspace_new/stats_data/main/hgnd/data'
-    print "获取数据完成"
-    #data_dir = '/home/jay/workspace_new/stats_data/main/fsyd/data'
-    #result_names   =  data_extract(data_dir)
-    #填充地区名称
-    #indi_region_filename = merge(result_names[0],1, area_code_dict,"indicator_regionname.txt")
-    #填充指标名称和单位
-    #indi_dict =  load_dict(result_names[1],0,[1,2])
-    #indi_regin_unit_filename = merge(indi_region_filename,0, indi_dict,"indicator_regionname_unit.txt")
-    
-    indi_regin_unit_filename = '/home/jay/workspace_new/stats_data/main/fsyd/indicator_regionname_unit.txt'
-    if data_dirs[sn] == "fsjd":
-        print "拆分时间字段，转化为季度中.."
-        patterns = {"(\d{4})A":"\g<1>\t一季度","(\d{4})B":"\g<1>\t二季度","(\d{4})C":"\g<1>\t三季度","(\d{4})D":"\g<1>\t四季度"}
-        letter_quarter(indi_regin_unit_filename, "indi_regin_unit_jidu.txt", patterns)
-    elif data_dirs[sn] == "fsyd":
-        print "拆分时间字段，转化为月度中.."
-        patterns = {"(\d{4})01":"\g<1>\t1月份",
-                            "(\d{4})02":"\g<1>\t2月份",
-                            "(\d{4})03":"\g<1>\t3月份",
-                            "(\d{4})04":"\g<1>\t4月份",
-                            "(\d{4})05":"\g<1>\t5月份",
-                            "(\d{4})06":"\g<1>\t6月份",
-                            "(\d{4})07":"\g<1>\t7月份",
-                            "(\d{4})08":"\g<1>\t8月份",
-                            "(\d{4})09":"\g<1>\t9月份",
-                            "(\d{4})10":"\g<1>\t10月份",
-                            "(\d{4})11":"\g<1>\t11月份",
-                            "(\d{4})12":"\g<1>\t12月份",}
-        letter_quarter(indi_regin_unit_filename, "indi_regin_unit_yuedu.txt", patterns)
-    else:
-        pass
-
-def save_page(url,fname,save_dir='indicator_menu'):
+def save_page(url,fname,save_dir):
     '''
     保存网页
     '''
@@ -511,32 +258,27 @@ def save_page(url,fname,save_dir='indicator_menu'):
     except Exception,e:
         print url,fname,e
     
-
-global  indicator_list
-indicator_list = []
-indi_info_list = []
-def get_indicator_menu(class_set):
+def get_zb_tree(class_set,dbcode,base_url,data_dir):
     '''
-    获取国家统计局网站指标目录文件
+    获取国家统计局网站指标树
     '''
     #宏观月度数据基本url
     #base_url = 'http://data.stats.gov.cn/easyquery.htm?cn=A01'
-    #宏观月度数据基本url
-    base_url = 'http://data.stats.gov.cn/easyquery.htm?cn=B01'
-    
+    #宏观季度数据基本url
+    #base_url = 'http://data.stats.gov.cn/easyquery.htm?cn=B01'
     false = False
     true = True
     #宏观月度
     #dbcode='hgyd'
     #宏观季度
-    dbcode='hgjd'
+    #dbcode='hgjd'
     wdcode='zb'
     m='getTree'
     
     for cls in class_set:
         #http://data.stats.gov.cn/easyquery.htm?cn=A01&id=A01&dbcode=hgyd&wdcode=zb&m=getTree
         tmp_url = base_url+"&id="+cls+"&dbcode="+dbcode+"&wdcode="+wdcode+"&m="+m
-        data = save_page(tmp_url, cls)
+        data = save_page(tmp_url, cls,data_dir)
         l = eval(data)
         if len(l) == 0:
             indicator_list.append(cls)
@@ -548,33 +290,23 @@ def get_indicator_menu(class_set):
                 if d['isParent']==True:
                     sub_class_set.add(indi_code)   
                 else:
-                    #yield indi_code
                     indicator_list.append(indi_code)
                     indi_info_list.append(str(d))
-                    #tmp_url = base_url+"&id="+indi_code+"&dbcode="+dbcode+"&wdcode="+wdcode+"&m="+m
-                    #save_page(tmp_url, indi_code)
         if len(sub_class_set) > 0:
-            get_indicator_menu(sub_class_set)
+            get_zb_tree(sub_class_set, dbcode, base_url,data_dir)
             
-def get_hgyd_data(search_file_name,start_year=2014,end_year=2014,dst_dir="hgyd/data/"):
+def get_cls_data(search_zb_code,base_url,dst_dir="hgyd/data/",start_year=2010,end_year=2014):
     '''
-    获取宏观月度数据
+    获取宏观分类数据
     '''
     log_file_name = "log.dat"
-    log = open(log_file_name,"w+")
-    search_zb_code = []
-    with open(search_file_name) as f:
-        lines = f.readlines()
-        for line in lines:
-            line = line.strip()
-            search_zb_code.append(line)
+    log = open(log_file_name,"a")
     #
     #base_url = '''http://data.stats.gov.cn/easyquery.htm?m=QueryData&dbcode=hgyd&rowcode=zb&colcode=sj&wds=[]&dfwds=[{"wdcode":"sj","valuecode":"year"}]&k1=zb_code'''
-    #宏观月度
-    base_url = '''http://data.stats.gov.cn/easyquery.htm?m=QueryData&dbcode=hgyd&rowcode=zb&colcode=sj&wds=[]&dfwds=[{"wdcode":"sj","valuecode":"year"},{"wdcode":"zb","valuecode":"zb_code"}]'''
+    #
+    #base_url = '''http://data.stats.gov.cn/easyquery.htm?m=QueryData&dbcode=hgyd&rowcode=zb&colcode=sj&wds=[]&dfwds=[{"wdcode":"sj","valuecode":"year"},{"wdcode":"zb","valuecode":"zb_code"}]'''
     #
     #base_url = '''http://data.stats.gov.cn/easyquery.htm?m=QueryData&dbcode=hgjd&rowcode=zb&colcode=sj&wds=[]&dfwds=[{"wdcode":"zb","valuecode":"zb_code"},{"wdcode":"sj","valuecode":"year"}]'''
-
     for year in range(start_year,end_year+1)[::-1]:
         #year = 2010
         year_str = str(year)
@@ -594,18 +326,22 @@ def get_hgyd_data(search_file_name,start_year=2014,end_year=2014,dst_dir="hgyd/d
             fname = zb_code+".dat"
             save_page(target_url, fname, save_dir_name)
     log.close()       
+    print "download done!"
     
-    
-def extra_hgyd_data(data_dir=""):
+def extra_hg_data(data_dir=""):
     '''
     
     '''
+    print "抽取",data_dir,"数据"
+    search_dir = data_dir + "data/"
     filelist = []
-    for root,dirs,files in os.walk(data_dir+"data/"):
-        for file_ in files:
-            filelist.append(os.path.join(root,file_))
-    
-    
+    if os.path.exists(search_dir):
+        for root,dirs,files in os.walk(search_dir):
+            for file_ in files:
+                filelist.append(os.path.join(root,file_))
+    else:
+        print "don't find ",search_dir
+        sys.exit()
     data_out_file_name = os.path.join(data_dir,"extra_data.dat")
     zb_out_file_name = os.path.join(data_dir,"zb_info.dat")
     data_out = open(data_out_file_name,"w")
@@ -620,9 +356,6 @@ def extra_hgyd_data(data_dir=""):
     zb_out.write("\n")
     file_no = 0
     zb_set = set()
-    #current_dir = os.path.dirname(data_dir)
-    #获取所有文件名
-    
     #遍历文件
     for file_name in filelist:
         file_no += 1
@@ -638,7 +371,6 @@ def extra_hgyd_data(data_dir=""):
             returndata = decodejson['returndata']
             datanodes = returndata['datanodes']
             wdnodes = returndata['wdnodes']
-            
             #保存指标代码及数值
             for node in datanodes:
                 #print node['code']
@@ -668,30 +400,152 @@ def extra_hgyd_data(data_dir=""):
                             pass
                         else:
                             cname =  node['cname']
+                            cname = del_tabs(cname)
                             exp =  node['exp']
+                            exp = del_tabs(exp)
                             memo =  node['memo']
+                            memo = del_tabs(memo)
                             name =  node['name']
+                            name = del_tabs(name)
                             tag =  node['tag']
+                            tag = del_tabs(tag)
                             unit =  node['unit']
+                            unit = del_tabs(unit)
                             zb_list = [code.encode('utf-8'),cname.encode('utf-8'),exp.encode('utf-8'),memo.encode('utf-8'),name.encode('utf-8'),tag.encode('utf-8'),unit.encode('utf-8')]
                             zb_out.write("\t".join(zb_list))
                             zb_out.write("\n")
     data_out.close()
     zb_out.close()
-                                    
     
+def table_to_rec(table_file_name):
+    '''
+    
+    '''
+    sufix = os.path.splitext(table_file_name)[1]
+    pos = table_file_name.find(sufix)
+    rec_file_name = table_file_name[:pos]+"_REC"+sufix
+    fout = open(rec_file_name,"w")
+    
+    fin = open(table_file_name)
+    line = fin.readline()
+    fields_str = line.strip()
+    fields = fields_str.split("\t")
+    fields_num = len(fields)
+    line_no = 0
+    while line:
+        line_no += 1
+        if line_no % 1000 == 0:
+            print "processing:",line_no,"lines"
+        rec_items = []
+        line = fin.readline()
+        #record = line.strip()
+        items = line.split("\t")
+        if len(items) == fields_num:
+            rec_items.append("<REC>")
+            for i  in range(fields_num):
+                rec_items.append("<"+fields[i]+">="+items[i])
+            fout.write("\n".join(rec_items))
+            #fout.write("\n")
+        else:
+            print line,"length:",len(items),"切分后个数不等于字段个数"
+            for tmp in items:
+                print tmp
+        line = fin.readline()
+    fout.close()
+                
+def download_hg_stats_data():
+    '''
+    下载宏观统计数据
+    '''
+    note_menu = {'1':'获取宏观月度数据', 
+                                '2':'获取宏观季度数据',
+                                '3':'获取宏观年度数据',}
+    
+    data_dirs     = {'1':'hgyd', 
+                                '2':'hgjd',
+                                '3':'hgnd',}
+    
+    print "[1]获取宏观月度数据"
+    print "[2]获取宏观季度数据"
+    print "[3]获取宏观年度数据"
+    #indicator_list = []
+    db_cls = ""
+    #创建对应的文件夹
+    while True:
+        sn = raw_input("输入对应的数字序号进行选择")
+        if sn != '1' and sn != '2' and sn !='3':
+            continue
+        print "确定",note_menu[sn],"请输入y,否则请输入其他字符.输入0退出程序"
+        select = raw_input(":")
+        if select == "y":
+            current_dir = os.getcwd()
+            data_dir_path = os.path.join(current_dir,data_dirs[sn])
+            if not os.path.exists(data_dir_path):
+                try:
+                    mkdir_p(data_dir_path)
+                except  Exception,e:
+                        print data_dir_path,"文件夹创建失败",e
+                        sys.exit()
+            print note_menu[sn]," 数据将会保存在: ",data_dir_path
+            db_cls = data_dirs[sn]
+            break
+        elif select == '0':
+            sys.exit()
+        else:
+            pass
+    #读取配置文件
+    #得到 获取指标树所需要的url
+    cf = ConfigParser.ConfigParser()
+    cf.read("stats_data.conf")
+    #get_tree_url = ""
+    try:
+        get_tree_url = cf.get("gettreeurl", db_cls)
+    except Exception,e:
+        print "配置文件中get_tree_url加载错误",e
+        sys.exit()
+    #加载当前数据类型所对应的顶层指标分类编号列表,转化为集合
+    #zb_cls = set()
+    try:
+        zb_cls = set(eval(cf.get("zbcls", db_cls)))
+    except Exception,e:
+        print "配置文件中zb_cls加载错误",e
+        sys.exit()
+    #加载指标数据检索字url
+    try:
+        queryurl = cf.get("queryurl", db_cls)
+    except Exception,e:
+        print "配置文件中queryurl加载错误",e
+        sys.exit()
+    #从统计局获取所有指标的父类目
+    zb_tree_dir = os.path.join(data_dir_path,"zb_tree/")
+    if not os.path.exists(zb_tree_dir):
+        mkdir_p(zb_tree_dir)
+    #判断检索指标类别文件是否存在,不存在则下载
+    search_cls = []
+    search_zb_file_name = os.path.join(data_dir_path,"search_cls.txt")
+    if os.path.exists(search_zb_file_name):
+        with open(search_zb_file_name) as f:
+            lines = f.readlines()
+            for line in lines:
+                search_cls.append(line.strip())
+    else:
+        get_zb_tree(zb_cls, db_cls, get_tree_url,zb_tree_dir)
+        search_cls = indicator_list
+        with open(search_zb_file_name,"w") as f:
+            f.write('\n'.join(search_cls))
+            f.write('\n')
+    #逐年、逐指标类目下载数据
+    #创建数据存放目录
+    download_dir = os.path.join(data_dir_path,"data/")
+    if os.path.exists(download_dir):
+        mkdir_p(download_dir)
+    get_cls_data(search_cls, queryurl,download_dir)
+    extra_hg_data(download_dir)
+    print note_menu[sn],"数据获取完成"
+    
+
 #
 if __name__ == "__main__":
-    #urls = get_stats_urls(sys.argv[1])
-    #urls = get_stats_urls("hgyd.har")
-    #area_code_dict  = load_dict("area_code", 0, [1])
-    #area_codes = area_code_dict.keys()
-    #get_fsnd_data(urls, area_codes)
-    #data_dir = "./data/"
-    #data_extract(data_dir)
-    #indi_dict = load_dict("indicator_meta.txt", 0, [1,2])
-    #merge("table_data_merge.txt",3,area_code_dict,"tabledata_indi_region.txt")
-    #stats_data()
     #hgyd------- 
     #hgyd_class_set = set(['A01','A02','A03','A04','A05','A06','A07','A08','A09','A0A','A0B'])
     #l = get_indicator_menu(hgyd_class_set)
@@ -703,6 +557,13 @@ if __name__ == "__main__":
     #fout.close()
     
     #get_hgyd_data("hgyd/hgyd_search_zb.txt")
-    extra_hgyd_data("hgjd/")
+    #extra_hgyd_data("hgyd/")
+    #table_to_rec("hgyd/extra_data.dat")
+    #table_to_rec("hgjd/zb_info.dat")
+    
+    #indi_dict = load_dict("hgjd/zb_info.dat", 0, [1,6])
+    #merge("hgjd/extra_data.dat", 0, indi_dict, "extra_zbname_unit_data.dat")
+    #table_to_rec("hgjd/extra_zbname_unit_data.dat")
+    #download_hg_stats_data()
     print "数据处理完毕!   End!"
 
