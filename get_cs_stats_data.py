@@ -104,7 +104,7 @@ def get_zb_tree(class_set,dbcode,base_url,data_dir):
         if len(sub_class_set) > 0:
             get_zb_tree(sub_class_set, dbcode, base_url,data_dir)
             
-def get_cls_data(search_zb_code,base_url,dst_dir,area_code_list=None,start_year=2000,end_year=2014):
+def get_cls_data(search_zb_code,base_url,dst_dir,area_code_list,start_year,end_year):
     '''
         获取宏观分类数据
     '''
@@ -121,7 +121,7 @@ def get_cls_data(search_zb_code,base_url,dst_dir,area_code_list=None,start_year=
         year_str = str(year)
         print "processing:",year_str
         log.write(year_str+"\n")
-        save_dir_name = dst_dir + year_str + "/"
+        save_dir_name = dst_dir + year_str + os.path.sep
         mkdir_p(save_dir_name)
         zb_num = 0
         for zb_code in search_zb_code:
