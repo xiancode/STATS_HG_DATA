@@ -398,7 +398,6 @@ def download_hg_stats_data(extra_data):
     if extra_data:
         extra_data(data_dirs[sn])
     
-
 if __name__ == "__main__":
     #extra_data  是否抽取数据 True为抽取
     download_hg_stats_data(extra_data=True)
