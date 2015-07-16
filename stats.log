@@ -1,1 +1,0 @@
-Thu, 16 Jul 2015 16:30:28 get_cs_stats_data.py[line:68] INFO http://data.stats.gov.cn/easyquery.htm?m=QueryData&dbcode=hgyd&rowcode=zb&colcode=sj&wds=[]&dfwds=[{"wdcode":"sj","valuecode":"2015"},{"wdcode":"zb","valuecode":"A010803"}]A010803.dat[Errno socket error] [Errno 10061] 
