@@ -3,12 +3,18 @@
 
 import ConfigParser
 import sys
-import re
 import os
 import urllib
 import errno
 import string
 import json
+import logging
+
+logging.basicConfig(level=logging.DEBUG,
+                format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
+                datefmt='%a, %d %b %Y %H:%M:%S',
+                filename='stats.log',
+                filemode='w')
 
 global null
 #替换文件中的null，防止词典载入错误
@@ -59,6 +65,7 @@ def save_page(url,fname,save_dir):
         fout.close()
         return data
     except Exception,e:
+        logging.info(url+fname+str(e))
         print url,fname,e
     
 def get_zb_tree(class_set,dbcode,base_url,data_dir):
@@ -346,8 +353,22 @@ def download_hg_stats_data(extra_data):
     except Exception,e:
         print "配置文件中queryurl加载错误",e
         sys.exit()
+    #加载起始年份
+    try:
+        startyear = cf.get("startyear", db_cls)
+    except Exception,e:
+        print "配置文件中startyear加载错误",e
+        sys.exit()
+    #加载结束年份
+    try:
+        endyear = cf.get("endyear", db_cls)
+    except Exception,e:
+        print "配置文件中endyear加载错误",e
+        sys.exit()
+    start_year = int(startyear)
+    end_year = int(endyear)
     #从统计局获取所有指标的父类目
-    zb_tree_dir = os.path.join(data_dir_path,"zb_tree/")
+    zb_tree_dir = os.path.join(data_dir_path,"zb_tree"+os.path.sep)
     if not os.path.exists(zb_tree_dir):
         mkdir_p(zb_tree_dir)
     #判断检索指标类别文件是否存在,不存在则下载
@@ -372,7 +393,7 @@ def download_hg_stats_data(extra_data):
     #是否获取地区代码
     if sn in note_menu.keys()[3:]:
         area_list = load_list("dq_code" + os.path.sep + data_dirs[sn]+".dat")
-    get_cls_data(search_cls, queryurl,download_dir,area_list)
+    get_cls_data(search_cls, queryurl,download_dir,area_list,start_year,end_year)
     #print note_menu[sn],"数据获取完成"
     if extra_data:
         extra_data(data_dirs[sn])
