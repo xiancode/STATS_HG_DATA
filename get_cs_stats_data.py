@@ -10,6 +10,8 @@ import string
 import json
 import logging
 
+content_type = sys.getfilesystemencoding() 
+
 logging.basicConfig(level=logging.DEBUG,
                 format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                 datefmt='%a, %d %b %Y %H:%M:%S',
@@ -54,19 +56,20 @@ def mkdir_p(path):
  
 def save_page(url,fname,save_dir):
     '''
-    保存网页
+        保存网页
     '''
     try:
         page = urllib.urlopen(url)
         data = page.read()
         outfile_name = os.path.join(save_dir,fname)
-        fout = open(outfile_name,"w")
-        fout.write(data)
+        fout = open(outfile_name,"wb")
+        fout.write(data.decode('utf-8','ignore').encode(content_type))
         fout.close()
-        return data
     except Exception,e:
         logging.info(url+fname+str(e))
+        data = None
         print url,fname,e
+    return data
     
 def get_zb_tree(class_set,dbcode,base_url,data_dir):
     '''
@@ -88,6 +91,8 @@ def get_zb_tree(class_set,dbcode,base_url,data_dir):
         #http://data.stats.gov.cn/easyquery.htm?cn=A01&id=A01&dbcode=hgyd&wdcode=zb&m=getTree
         tmp_url = base_url+"&id="+cls+"&dbcode="+dbcode+"&wdcode="+wdcode+"&m="+m
         data = save_page(tmp_url, cls,data_dir)
+        if data is None:
+            continue
         l = eval(data)
         if len(l) == 0:
             indicator_list.append(cls)
@@ -398,7 +403,6 @@ def download_hg_stats_data(extra_data):
     #if extra_data:
     #    extra_data(data_dirs[sn])
     
-
 if __name__ == "__main__":
     #extra_data  是否抽取数据 True为抽取
     download_hg_stats_data(extra_data=True)
