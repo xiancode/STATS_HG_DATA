@@ -395,8 +395,8 @@ def download_hg_stats_data(extra_data):
         area_list = load_list("dq_code" + os.path.sep + data_dirs[sn]+".dat")
     get_cls_data(search_cls, queryurl,download_dir,area_list,start_year,end_year)
     #print note_menu[sn],"数据获取完成"
-    if extra_data:
-        extra_data(data_dirs[sn])
+    #if extra_data:
+    #    extra_data(data_dirs[sn])
     
 
 if __name__ == "__main__":
