@@ -9,6 +9,7 @@ import errno
 import string
 import json
 import logging
+import codecs
 
 content_type = sys.getfilesystemencoding() 
 
@@ -16,7 +17,7 @@ logging.basicConfig(level=logging.DEBUG,
                 format='%(asctime)s %(filename)s[line:%(lineno)d] %(levelname)s %(message)s',
                 datefmt='%a, %d %b %Y %H:%M:%S',
                 filename='stats.log',
-                filemode='w')
+                filemode='a')
 
 global null
 #替换文件中的null，防止词典载入错误
@@ -61,9 +62,14 @@ def save_page(url,fname,save_dir):
     try:
         page = urllib.urlopen(url)
         data = page.read()
+        #print data
         outfile_name = os.path.join(save_dir,fname)
-        fout = open(outfile_name,"wb")
-        fout.write(data.decode('utf-8','ignore').encode(content_type))
+        #fout = open(outfile_name,"wb")
+        fout = codecs.open(outfile_name, "w","utf-8-sig")
+        fout.write(data.decode('utf8'))
+        #fout.write(data.decode('utf-8').encode(content_type))
+        #fout.write(urllib.unquote(data).decode('utf8').encode(content_type))
+        #fout.writelines(data)
         fout.close()
     except Exception,e:
         logging.info(url+fname+str(e))
@@ -400,8 +406,8 @@ def download_hg_stats_data(extra_data):
         area_list = load_list("dq_code" + os.path.sep + data_dirs[sn]+".dat")
     get_cls_data(search_cls, queryurl,download_dir,area_list,start_year,end_year)
     #print note_menu[sn],"数据获取完成"
-    #if extra_data:
-    #    extra_data(data_dirs[sn])
+    if extra_data:
+        extra_data(data_dirs[sn])
     
 if __name__ == "__main__":
     #extra_data  是否抽取数据 True为抽取
